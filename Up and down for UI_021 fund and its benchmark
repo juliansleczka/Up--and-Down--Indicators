@@ -1,0 +1,190 @@
+rm(list=ls())
+library(xts)
+library(PerformanceAnalytics)
+#################################################################
+################## Fundusz ####################################
+fundusz          <- "UI_021.mst"                      #ticker - All012
+fundusz.nazwa    <-"Generali male i srednie spolki"    #nazwa, ktora bedzie uzywana na wykresach
+dane.fundusz     <- read.csv2(file = paste("C:/ESIwR/dane/",fundusz, sep=""), head=TRUE, sep=",", dec=".")
+dane.fundusz     <-dane.fundusz[,-1]              #usuwamy kolumne z tickerem
+daty             <- as.Date(as.character(dane.fundusz$"X.DTYYYYMMDD."), format="%Y%m%d")
+dane.fundusz.xts <-xts(dane.fundusz,order.by=daty)
+a.poziom.d       <-dane.fundusz.xts
+a.poziom.m       <-apply.monthly(a.poziom.d, last)
+a.poziom.m       <-a.poziom.m[-nrow(a.poziom.m),]   
+aktywo<-a.poziom.m$X.OPEN.
+a.zwrot           <-Return.calculate(aktywo, method = "discrete") 
+a.zwrot           <-a.zwrot[-1]               
+colnames(a.zwrot) <-c("stopa zwrotu aktywa")
+a.zwrot.log       <-Return.calculate(aktywo, method = "log")
+a.zwrot.log       <-a.zwrot.log[-1]
+###############################################################
+##################  WIBID80 ######################################
+dane.fundusz1     <- read.csv2(file = paste("C:/WIBID1M.csv"), head=TRUE, sep=",", dec=".")
+daty1             <- as.Date(as.character(dane.fundusz1$"Data"))
+dane.fundusz.xts1 <-xts(dane.fundusz1,order.by=daty1)
+dane.fundusz.xts1 <-xts(dane.fundusz1[,-1], daty1)
+d.poziom.d       <-dane.fundusz.xts1
+d.poziom.m       <-apply.monthly(d.poziom.d, last)
+d.poziom.m       <-d.poziom.m[-nrow(d.poziom.m),]   
+aktywo1<-d.poziom.m$Otwarcie
+d.zwrot           <-Return.calculate(aktywo1, method = "discrete") 
+d.zwrot           <-d.zwrot[-1]               
+colnames(d.zwrot) <-c("stopa zwrotu wibid")
+d.zwrot.log       <-Return.calculate(aktywo1, method = "log")
+d.zwrot.log       <-d.zwrot.log[-1]
+###########################################################
+#################    WIG40 ###################################
+dane.fundusz2     <- read.csv2(file = paste("C:/mwig40_d.csv"), head=TRUE, sep=",", dec=".")
+daty2             <- as.Date(as.character(dane.fundusz2$"Data"))
+dane.fundusz.xts2 <-xts(dane.fundusz2,order.by=daty2)
+dane.fundusz.xts2 <-xts(dane.fundusz2[,-1], daty2)
+w40.poziom.d       <-dane.fundusz.xts2
+w40.poziom.m       <-apply.monthly(w40.poziom.d, last)
+w40.poziom.m       <-w40.poziom.m[-nrow(w40.poziom.m),]   
+aktywo2<-w40.poziom.m$Otwarcie
+w40.zwrot           <-Return.calculate(aktywo2, method = "discrete") 
+w40.zwrot           <-w40.zwrot[-1]               
+colnames(w40.zwrot) <-c("stopa zwrotu wig40")
+w40.zwrot.log       <-Return.calculate(aktywo2, method = "log")
+w40.zwrot.log       <-w40.zwrot.log[-1]
+###############################################################
+###############     WIG80   ###############################
+dane.fundusz3     <- read.csv2(file = paste("C:/swig80_d.csv"), head=TRUE, sep=",", dec=".")
+daty3             <- as.Date(as.character(dane.fundusz3$"Data"))
+dane.fundusz.xts3 <-xts(dane.fundusz3,order.by=daty3)
+dane.fundusz.xts3 <-xts(dane.fundusz3[,-1], daty3)
+w80.poziom.d       <-dane.fundusz.xts3
+w80.poziom.m       <-apply.monthly(w80.poziom.d, last)
+w80.poziom.m       <-w80.poziom.m[-nrow(w80.poziom.m),]   
+aktywo3<-w80.poziom.m$Otwarcie
+w80.zwrot           <-Return.calculate(aktywo3, method = "discrete") 
+w80.zwrot           <-w80.zwrot[-1]               
+colnames(w80.zwrot) <-c("stopa zwrotu wig80")
+w80.zwrot.log       <-Return.calculate(aktywo3, method = "log")
+w80.zwrot.log       <-w80.zwrot.log[-1]
+##################################################################
+############### benchmark#################################
+d.zwrot[d.zwrot == NaN | d.zwrot == -Inf] <- 0.000000000
+d.zwrot[is.nan(d.zwrot)]<-0.000000000
+d.zwrot.log[d.zwrot.log == NaN | d.zwrot.log == -Inf] <- 0.000000000
+d.zwrot.log[is.nan(d.zwrot.log)]<-0.000000000
+bmark<-cbind(d.zwrot,w40.zwrot,w80.zwrot)
+bmark<-bmark[complete.cases(bmark), ]
+bmark <- bmark[,1]*0.1+bmark[,2]*0.6+bmark[,3]*0.3
+colnames(bmark) <-c("stopa.zwrotu.benchmark")
+bench<-cbind(a.zwrot,bmark)
+bench<-bench[complete.cases(bench), ]
+bench1<-as.data.frame(bench)
+bench1<-bench1[order(bench1$stopa.zwrotu.benchmark),]
+benchfall<- bench1[1:82,]
+dci<-mean(benchfall[,1])/mean(benchfall[,2])
+dci
+benchup<-bench1[83:186,]
+uci<-mean(benchup[,1])/mean(benchup[,2])
+uci
+################################
+######## bench. c.d. ####################
+r                 <-as.vector(bmark)
+r.xts             <-bmark
+
+
+
+K<-60
+r.xts<-tail(r.xts, n=K)
+r<-as.vector(r.xts)
+T               <-as.numeric(length(r.xts))
+
+#Stopy zwrotu:
+r.geo           <-(prod(1+r)*(-1))^(1/T)-1
+r.geo.A         <-(prod(1+r)*(-1))^(12/T)-1
+r.ary           <-mean(r)
+
+#Miary ryzyka:
+table.Variability(r.xts)                               
+r.sd              <-table.Variability(r.xts)[2,1]  
+r.sd.A            <-table.Variability(r.xts)[3,1]
+r.mad             <-table.Variability(r.xts)[1,1]
+r.ij        <-matrix(rep(0, times=T^2), ncol=T)
+#Gini:
+for (i in 1:T){
+  for(j in 1:T){
+    r.ij[i,j]<-r[i]-r[j]
+  }
+}
+r.MD              <-1/(T*(T-1))*sum(abs(r.ij))     
+
+Drawdown          <-function(wektor.argument){
+  wektor<-as.vector(wektor.argument)
+  wektor01<-rep(0, times=length(wektor)+1)
+  wektor01[which(wektor<0)]<-1
+  drawd<-c()
+  indeks<-0
+  if (length(which(wektor01 > 0))==0) {wektor=c(); drawd=rep(0, times=length(wektor)); print("Brak obsunięć")} else
+    while (length(wektor)>0){
+      if (wektor01[1]==1) {
+        indeks<-as.numeric(min(which(wektor01==0)));
+        indeks=indeks-1;
+        drawd=c(drawd,rep(0, times=(indeks-1)), prod(1+wektor[1:indeks])-1);
+        wektor<-wektor[-(1:indeks)]; wektor01<-wektor01[-(1:indeks)]
+      } else {
+        wektor<-wektor[-1]; wektor01<-wektor01[-1]; drawd<-c(drawd,0)
+      }
+    }
+  drawd
+}
+ DrawdownFromPeak      <-function(wektor.argument){
+        wektor<-as.vector(wektor.argument)
+        wektor01<-rep(0, times=length(wektor))
+        wektor01[which(wektor<0)]<-1
+        drawd<-c()
+        if (length(which(wektor01 > 0))==0) {drawd=cumprod(1+wektor)} else
+           while (length(wektor)>0){
+              if (wektor01[1]==0) {
+                  wektor<-wektor[-1]; wektor01<-wektor01[-1]; drawd<-c(drawd,0)
+               } else {
+                     licznik=1
+                     while  (prod(1+wektor[1:licznik])-1<0 & licznik<=length(wektor)) {licznik=licznik+1}
+                     licznik=licznik-1
+                     drawd<-c(drawd,cumprod(1+wektor[1:licznik])-1);
+                     wektor<-wektor[-c(1:licznik)]
+                     wektor01<-wektor01[-c(1:licznik)]
+               }
+           }
+        drawd
+     }
+
+obsuniecia            <-Drawdown(r)
+r.D.przecietne        <-abs(mean(obsuniecia[obsuniecia!=0]))
+r.D.Lar               <-abs(min(obsuniecia))   
+r.DD                  <-sqrt(1/T*sum(obsuniecia^2))
+
+obsuniecia.od.piku    <-DrawdownFromPeak(r.xts)
+r.skum                <-cumprod(1+r.xts)
+pik                   <-which(r.skum==max(r.skum))
+r.D.max               <--min(DrawdownFromPeak(r[pik:T]))
+r.UI                  <-sqrt(1/T*sum(obsuniecia.od.piku^2))  
+r.PI                  <-1/T*sum(abs(obsuniecia.od.piku))  
+
+r.MIN                   <-0                                           #poziom wymagany np. 0, r.geo, r.ary
+r.n.D                 <-length(which(as.vector(r.xts)<r.MIN))
+r.n.U                 <-length(which(as.vector(r.xts)>r.MIN))
+#ryzyko nieosiagniecia celu (downside risk)   
+r.sigma.D             <-DownsideDeviation(r.xts, MAR=r.MIN, method="full")
+#potencjalne nieosiagniecie celu (downside potential)
+r.mu.D                <-DownsidePotential(r.xts, MAR=r.MIN)
+#ryzyko osiagniecia celu (upside risk)     
+r.sigma.U             <-UpsideRisk(r.xts, MAR=r.MIN, method="full", stat="risk")
+#potencjalne osiagniecie celu (upside potential)
+r.mu.U                <-UpsideRisk(r.xts, MAR=r.MIN, method="full", stat="potential")
+#odchylenie standardowe straty/zysku (loss/gain standard deviation)
+r.sigma.L             <-DownsideDeviation(r.xts, MAR=r.MIN, method="subset")
+r.sigma.G             <-UpsideRisk(r.xts, MAR=r.MIN, method="subset")
+#Wartość zagrożona i warunkowa wartość zagrożona
+r.VaR95.h             <--VaR(r.xts, p=.95, method="historical")
+r.VaR95.g             <--VaR(r.xts, p=.95, method="gaussian")
+r.VaR95.m             <--VaR(r.xts, p=.95, method="modified")
+
+r.CVaR95.h            <--ETL(r.xts, p=0.95, method="historical")
+r.CVaR95.g            <--ETL(r.xts, p=0.95, method="gaussian")
+r.CVaR95.m            <--ETL(r.xts, p=0.95, method="modified")
